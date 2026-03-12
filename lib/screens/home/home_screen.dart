@@ -5,6 +5,10 @@ import '../../core/theme/app_theme.dart';
 import '../../core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 import '../../widgets/transactions/add_transaction_bottom_sheet.dart';
+import '../../providers/wallet_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/goal_provider.dart';
+import '../../widgets/goals/goal_options_bottom_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -45,8 +49,23 @@ class HomeScreen extends ConsumerWidget {
               const Gap(20),
 
               // Balance total
-              _BalanceCard(theme: theme),
-              const Gap(20),
+              const _BalanceCard(),
+              const Gap(24),
+
+              // Metas secundarias
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Tus metas', style: theme.textTheme.titleMedium),
+                  TextButton(
+                    onPressed: () => context.push(AppRoutes.goals),
+                    child: const Text('Ver todas'),
+                  ),
+                ],
+              ),
+              const Gap(8),
+              const _MiniGoalsList(),
+              const Gap(24),
 
               // Resumen del mes
               _MonthlySummaryCard(theme: theme),
@@ -159,12 +178,15 @@ class _MainGoalCard extends StatelessWidget {
   }
 }
 
-class _BalanceCard extends StatelessWidget {
-  final ThemeData theme;
-  const _BalanceCard({required this.theme});
+class _BalanceCard extends ConsumerWidget {
+  const _BalanceCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final totalBalanceAsync = ref.watch(totalBalanceProvider);
+    final walletsAsyncValue = ref.watch(walletsStreamProvider);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -194,9 +216,18 @@ class _BalanceCard extends StatelessWidget {
             ],
           ),
           const Gap(16),
-          Text('\$ 0,00', style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700)),
+          totalBalanceAsync.when(
+            data: (balance) => Text('\$ ${balance.toStringAsFixed(2)}', 
+                style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700)),
+            loading: () => const CircularProgressIndicator(),
+            error: (err, stack) => Text('Error', style: theme.textTheme.displaySmall),
+          ),
           const Gap(4),
-          Text('En 0 billeteras', style: theme.textTheme.bodySmall),
+          walletsAsyncValue.when(
+            data: (wallets) => Text('En ${wallets.length} billeteras', style: theme.textTheme.bodySmall),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
         ],
       ),
     );
@@ -357,3 +388,100 @@ class _QuickAccessGrid extends StatelessWidget {
     );
   }
 }
+
+class _MiniGoalsList extends ConsumerWidget {
+  const _MiniGoalsList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goalsAsync = ref.watch(goalsStreamProvider);
+
+    return goalsAsync.when(
+      data: (goals) {
+        if (goals.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.cardLight,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: Text('No hay metas activas.', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: goals.length,
+            separatorBuilder: (context, index) => const Gap(16),
+            itemBuilder: (context, index) {
+              final g = goals[index];
+              final progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount).clamp(0.0, 1.0) : 0.0;
+              final color = Color(g.colorValue);
+
+              return GestureDetector(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => GoalOptionsBottomSheet(goal: g),
+                  );
+                },
+                child: Container(
+                  width: 160,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Text(g.icon, style: const TextStyle(fontSize: 20)),
+                          const Gap(8),
+                          Expanded(
+                            child: Text(
+                              g.title,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Text(
+                        '\$${g.currentAmount.toStringAsFixed(0)} / \$${g.targetAmount.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      const Gap(8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 6,
+                          backgroundColor: color.withValues(alpha: 0.2),
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => const SizedBox.shrink(),
+    );
+  }
+}
+

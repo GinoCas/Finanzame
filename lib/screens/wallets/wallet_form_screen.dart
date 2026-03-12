@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/repositories/app_database.dart';
+import '../../providers/wallet_provider.dart';
+import '../../providers/auth_provider.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:uuid/uuid.dart';
 
 // Si 'walletToEdit' es null, se está creando una nueva. Si tiene data, se edita.
 class WalletFormScreen extends ConsumerStatefulWidget {
@@ -51,12 +55,35 @@ class _WalletFormScreenState extends ConsumerState<WalletFormScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final user = ref.read(currentUserProvider);
+      if (user == null) throw Exception('Usuario no autenticado');
+      
+      final name = _nameController.text.trim();
+      final balance = double.tryParse(_balanceController.text) ?? 0.0;
+      final color = AppColors.accent.toARGB32();
+
       if (widget.walletToEdit == null) {
-        // Crear
-        // TODO: Llamar al provider/repository para guardar en base de datos local
+        final newWallet = WalletsCompanion.insert(
+          uid: const Uuid().v4(),
+          userId: user.uid,
+          name: name,
+          type: _selectedType.name,
+          currency: _selectedCurrency.name,
+          balance: drift.Value(balance),
+          colorValue: color,
+          createdAt: DateTime.now(),
+        );
+        await ref.read(walletNotifierProvider.notifier).addWallet(newWallet);
       } else {
-        // Editar
-        // TODO: Llamar al provider/repository para actualizar en base de datos local
+        final updatedWallet = WalletsCompanion(
+          uid: drift.Value(widget.walletToEdit!.uid),
+          name: drift.Value(name),
+          type: drift.Value(_selectedType.name),
+          currency: drift.Value(_selectedCurrency.name),
+          balance: drift.Value(balance),
+          updatedAt: drift.Value(DateTime.now()),
+        );
+        await ref.read(walletNotifierProvider.notifier).updateWallet(updatedWallet);
       }
 
       if (mounted) context.pop();
@@ -101,10 +128,11 @@ class _WalletFormScreenState extends ConsumerState<WalletFormScreen> {
                 initialValue: _selectedType,
                 decoration: const InputDecoration(labelText: 'Tipo de cuenta'),
                 dropdownColor: AppColors.cardLight,
+                isExpanded: true,
                 items: WalletType.values.map((type) {
                   return DropdownMenuItem(
                     value: type,
-                    child: Text(type.name), // Idealmente usar una extensión para mostrar nombre amigable
+                    child: Text(type.label), 
                   );
                 }).toList(),
                 onChanged: (val) {
@@ -121,6 +149,7 @@ class _WalletFormScreenState extends ConsumerState<WalletFormScreen> {
                       initialValue: _selectedCurrency,
                       decoration: const InputDecoration(labelText: 'Moneda'),
                       dropdownColor: AppColors.cardLight,
+                      isExpanded: true,
                       items: Currency.values.map((c) {
                         return DropdownMenuItem(
                           value: c,

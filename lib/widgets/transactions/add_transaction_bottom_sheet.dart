@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/wallet_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../data/repositories/app_database.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:uuid/uuid.dart';
 
 class AddTransactionBottomSheet extends ConsumerStatefulWidget {
   const AddTransactionBottomSheet({super.key});
@@ -32,7 +37,26 @@ class _AddTransactionBottomSheetState extends ConsumerState<AddTransactionBottom
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Guardar transacción en base de datos usando un TransactionNotifier/Provider
+      final user = ref.read(currentUserProvider);
+      if (user == null) throw Exception('Usuario no autenticado');
+      
+      final amount = double.tryParse(_amountController.text) ?? 0.0;
+      final note = _noteController.text.trim();
+
+      final newTx = TransactionsCompanion.insert(
+        uid: const Uuid().v4(),
+        userId: user.uid,
+        walletId: _selectedWalletId!,
+        type: _selectedType.name,
+        currency: _selectedCurrency.name,
+        category: TransactionCategory.other.name, // Por ahora default
+        amount: amount,
+        note: drift.Value(note.isEmpty ? null : note),
+        date: DateTime.now(),
+        createdAt: DateTime.now(),
+      );
+
+      await ref.read(transactionNotifierProvider.notifier).addTransaction(newTx);
       
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -94,6 +118,7 @@ class _AddTransactionBottomSheetState extends ConsumerState<AddTransactionBottom
                       initialValue: _selectedCurrency,
                       decoration: const InputDecoration(labelText: 'Moneda'),
                       dropdownColor: AppColors.cardLight,
+                      isExpanded: true,
                       items: Currency.values.map((c) {
                         return DropdownMenuItem(
                           value: c,
@@ -145,6 +170,7 @@ class _AddTransactionBottomSheetState extends ConsumerState<AddTransactionBottom
                     initialValue: _selectedWalletId,
                     decoration: const InputDecoration(labelText: 'Billetera'),
                     dropdownColor: AppColors.cardLight,
+                    isExpanded: true,
                     items: wallets.map((w) {
                       return DropdownMenuItem(
                         value: w.uid,

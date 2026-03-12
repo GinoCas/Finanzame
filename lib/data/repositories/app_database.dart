@@ -38,8 +38,9 @@ class AppDatabase extends _$AppDatabase {
   Future<int> insertWallet(WalletsCompanion wallet) =>
       into(wallets).insert(wallet);
 
-  Future<bool> updateWallet(WalletsCompanion wallet) =>
-      update(wallets).replace(wallet);
+  Future<bool> updateWallet(WalletsCompanion wallet) async {
+    return await (update(wallets)..where((w) => w.uid.equals(wallet.uid.value))).write(wallet) > 0;
+  }
 
   // ── Transactions ─────────────────────────────────────────
 
@@ -74,8 +75,9 @@ class AppDatabase extends _$AppDatabase {
   Future<int> insertGoal(GoalsCompanion goal) =>
       into(goals).insert(goal);
 
-  Future<bool> updateGoal(GoalsCompanion goal) =>
-      update(goals).replace(goal);
+  Future<bool> updateGoal(GoalsCompanion goal) async {
+    return await (update(goals)..where((g) => g.uid.equals(goal.uid.value))).write(goal) > 0;
+  }
 
   // ── Budgets ───────────────────────────────────────────────
 

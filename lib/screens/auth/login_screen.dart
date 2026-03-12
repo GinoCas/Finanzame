@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 
@@ -13,30 +11,28 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  String? _errorDetail;
 
-  Future<void> _login() async {
+  Future<void> _signInWithGoogle() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      await ref.read(authServiceProvider).signInWithEmailAndPassword(
-            _emailController.text,
-            _passwordController.text,
-          );
-      // El go_router automáticamente redirigirá a home gracias al watcher de authState
+      final result = await ref.read(authServiceProvider).signInWithGoogle();
+      if (result == null && mounted) {
+        // El usuario canceló el selector de cuentas
+        setState(() => _isLoading = false);
+      }
+      // Si result != null el stream de authState detecta el cambio y el router redirige solo.
     } catch (e) {
-      setState(() {
-        _errorMessage = "Error al iniciar sesión. Verificá tus credenciales.";
-      });
-    } finally {
       if (mounted) {
         setState(() {
+          _errorMessage = 'Error al ingresar con Google.';
+          _errorDetail = e.toString();
           _isLoading = false;
         });
       }
@@ -51,74 +47,100 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.account_balance_wallet_rounded, size: 64, color: AppColors.accent),
+              // Logo / ícono
+              const Icon(
+                Icons.account_balance_wallet_rounded,
+                size: 80,
+                color: AppColors.accent,
+              ),
               const SizedBox(height: 24),
               Text(
-                'Bienvenido a\nFinanzame',
-                style: textTheme.displayMedium,
+                'Finanzame',
+                style: textTheme.displayMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 8),
+              Text(
+                'Tu app de finanzas personal y familiar',
+                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 64),
+
               if (_errorMessage != null)
                 Container(
                   padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: AppColors.expense.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.expense.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppColors.expense),
                   ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: AppColors.expenseLight),
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    children: [
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: AppColors.expenseLight, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (_errorDetail != null) ...[  
+                        const SizedBox(height: 4),
+                        Text(
+                          _errorDetail!,
+                          style: const TextStyle(color: AppColors.expenseLight, fontSize: 11),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Correo electrónico',
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Contraseña',
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 24),
+
+              // Botón de Google
               ElevatedButton(
-                onPressed: _isLoading ? null : _login,
-                child: _isLoading 
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Ingresar'),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => context.go(AppRoutes.register),
-                child: const Text('¿No tenés cuenta? Registrate'),
+                onPressed: _isLoading ? null : _signInWithGoogle,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.network(
+                            'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png',
+                            width: 24,
+                            height: 24,
+                            errorBuilder: (context, error, stack) => const Icon(Icons.login, color: Colors.blueAccent),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Continuar con Google',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
   }
 }
