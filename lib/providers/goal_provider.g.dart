@@ -6,7 +6,7 @@ part of 'goal_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$goalsStreamHash() => r'45e1238ab3b491d4be56243c91db0d7f36dd73a6';
+String _$goalsStreamHash() => r'ab7b960fdd4516547873b142aaf3a06afdebb0dd';
 
 /// See also [goalsStream].
 @ProviderFor(goalsStream)
@@ -23,7 +23,7 @@ final goalsStreamProvider = AutoDisposeStreamProvider<List<Goal>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef GoalsStreamRef = AutoDisposeStreamProviderRef<List<Goal>>;
-String _$goalNotifierHash() => r'28ea564c1161353f8d942f6201c629e5d564ee99';
+String _$goalNotifierHash() => r'bf85b09252f4033576df9f8279ee97f8b9f40af2';
 
 /// See also [GoalNotifier].
 @ProviderFor(GoalNotifier)
